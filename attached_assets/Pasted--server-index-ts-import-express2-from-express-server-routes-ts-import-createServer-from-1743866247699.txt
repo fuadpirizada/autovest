@@ -1,0 +1,740 @@
+// server/index.ts
+import express2 from "express";
+
+// server/routes.ts
+import { createServer } from "http";
+
+// server/storage.ts
+import session from "express-session";
+import createMemoryStore from "memorystore";
+var MemoryStore = createMemoryStore(session);
+var MemStorage = class {
+  users;
+  packages;
+  investments;
+  transactions;
+  userIdCounter;
+  packageIdCounter;
+  investmentIdCounter;
+  transactionIdCounter;
+  sessionStore;
+  // Express session store
+  constructor() {
+    this.users = /* @__PURE__ */ new Map();
+    this.packages = /* @__PURE__ */ new Map();
+    this.investments = /* @__PURE__ */ new Map();
+    this.transactions = /* @__PURE__ */ new Map();
+    this.userIdCounter = 1;
+    this.packageIdCounter = 1;
+    this.investmentIdCounter = 1;
+    this.transactionIdCounter = 1;
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 864e5
+      // prune expired entries every 24h
+    });
+    this.initDefaultPackages();
+  }
+  // User methods
+  async getUsers() {
+    return Array.from(this.users.values());
+  }
+  async getUser(id) {
+    return this.users.get(id);
+  }
+  async getUserByUsername(username) {
+    return Array.from(this.users.values()).find(
+      (user) => user.username === username
+    );
+  }
+  async createUser(insertUser) {
+    const id = this.userIdCounter++;
+    const now = /* @__PURE__ */ new Date();
+    const user = {
+      ...insertUser,
+      id,
+      createdAt: now,
+      role: "user",
+      balance: 0,
+      fullName: insertUser.fullName || null
+    };
+    this.users.set(id, user);
+    return user;
+  }
+  async updateUserBalance(userId, amount) {
+    const user = await this.getUser(userId);
+    if (user) {
+      user.balance += amount;
+      this.users.set(userId, user);
+    }
+  }
+  // Package methods
+  async getPackages() {
+    return Array.from(this.packages.values());
+  }
+  async getPackage(id) {
+    return this.packages.get(id);
+  }
+  async createPackage(pkg) {
+    const id = this.packageIdCounter++;
+    const newPackage = {
+      id,
+      name: pkg.name,
+      description: pkg.description || null,
+      tier: pkg.tier,
+      weeklyReturn: pkg.weeklyReturn,
+      minInvestment: pkg.minInvestment,
+      imageUrl: pkg.imageUrl || null,
+      isActive: true
+    };
+    this.packages.set(id, newPackage);
+    return newPackage;
+  }
+  async updatePackage(id, pkg) {
+    const existingPackage = await this.getPackage(id);
+    if (!existingPackage) return void 0;
+    const updatedPackage = { ...existingPackage, ...pkg };
+    this.packages.set(id, updatedPackage);
+    return updatedPackage;
+  }
+  // Investment methods
+  async getInvestments(userId) {
+    const allInvestments = Array.from(this.investments.values());
+    return userId ? allInvestments.filter((inv) => inv.userId === userId) : allInvestments;
+  }
+  async getInvestment(id) {
+    return this.investments.get(id);
+  }
+  async createInvestment(investment) {
+    const id = this.investmentIdCounter++;
+    const now = /* @__PURE__ */ new Date();
+    const endDate = new Date(now);
+    endDate.setMonth(endDate.getMonth() + investment.durationMonths);
+    const newInvestment = {
+      ...investment,
+      id,
+      startDate: now,
+      endDate,
+      isActive: true,
+      totalEarned: 0
+    };
+    this.investments.set(id, newInvestment);
+    return newInvestment;
+  }
+  async updateInvestment(id, partialInvestment) {
+    const existingInvestment = await this.getInvestment(id);
+    if (!existingInvestment) return void 0;
+    const updatedInvestment = { ...existingInvestment, ...partialInvestment };
+    this.investments.set(id, updatedInvestment);
+    return updatedInvestment;
+  }
+  // Transaction methods
+  async getTransactions(userId) {
+    const allTransactions = Array.from(this.transactions.values());
+    return userId ? allTransactions.filter((tx) => tx.userId === userId) : allTransactions;
+  }
+  async getTransaction(id) {
+    return this.transactions.get(id);
+  }
+  async createTransaction(transaction) {
+    const id = this.transactionIdCounter++;
+    const now = /* @__PURE__ */ new Date();
+    const newTransaction = {
+      id,
+      date: now,
+      type: transaction.type,
+      userId: transaction.userId,
+      amount: transaction.amount,
+      description: transaction.description || null,
+      status: transaction.status || "completed",
+      investmentId: transaction.investmentId || null
+    };
+    this.transactions.set(id, newTransaction);
+    if (transaction.type === "deposit" || transaction.type === "return") {
+      await this.updateUserBalance(transaction.userId, transaction.amount);
+    } else if (transaction.type === "withdrawal") {
+      await this.updateUserBalance(transaction.userId, -transaction.amount);
+    }
+    return newTransaction;
+  }
+  // Initialize default packages
+  async initDefaultPackages() {
+    const packages2 = [
+      {
+        name: "Starter Package",
+        description: "Begin your investment journey with just $1. Perfect for beginners.",
+        tier: "Basic",
+        weeklyReturn: 0.8,
+        minInvestment: 1,
+        imageUrl: "https://images.unsplash.com/photo-1582639510494-c80b5de9f148?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        isActive: true
+      },
+      {
+        name: "Economy Package",
+        description: "Entry level investment with steady returns and low commitment.",
+        tier: "Economy",
+        weeklyReturn: 1.2,
+        minInvestment: 100,
+        imageUrl: "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        isActive: true
+      },
+      {
+        name: "Premium Package",
+        description: "Mid-range portfolio with enhanced returns and balanced risk.",
+        tier: "Premium",
+        weeklyReturn: 1.5,
+        minInvestment: 500,
+        imageUrl: "https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        isActive: true
+      },
+      {
+        name: "Luxury Package",
+        description: "High-end portfolio with premium returns and exclusive benefits.",
+        tier: "Luxury",
+        weeklyReturn: 2,
+        minInvestment: 2e3,
+        imageUrl: "https://images.unsplash.com/photo-1616422285623-13ff0162193c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        isActive: true
+      },
+      {
+        name: "Supercar Package",
+        description: "Elite portfolio with maximum returns for serious investors.",
+        tier: "Supercar",
+        weeklyReturn: 2.5,
+        minInvestment: 5e3,
+        imageUrl: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        isActive: true
+      }
+    ];
+    for (const pkg of packages2) {
+      await this.createPackage(pkg);
+    }
+  }
+};
+var storage = new MemStorage();
+
+// server/auth.ts
+import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
+import session2 from "express-session";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+var scryptAsync = promisify(scrypt);
+async function hashPassword(password) {
+  const salt = randomBytes(16).toString("hex");
+  const buf = await scryptAsync(password, salt, 64);
+  return `${buf.toString("hex")}.${salt}`;
+}
+async function comparePasswords(supplied, stored) {
+  const [hashed, salt] = stored.split(".");
+  const hashedBuf = Buffer.from(hashed, "hex");
+  const suppliedBuf = await scryptAsync(supplied, salt, 64);
+  return timingSafeEqual(hashedBuf, suppliedBuf);
+}
+function setupAuth(app2) {
+  const sessionSettings = {
+    secret: process.env.SESSION_SECRET || "autovest-secret-key",
+    resave: false,
+    saveUninitialized: false,
+    store: storage.sessionStore
+  };
+  app2.set("trust proxy", 1);
+  app2.use(session2(sessionSettings));
+  app2.use(passport.initialize());
+  app2.use(passport.session());
+  passport.use(
+    new LocalStrategy(async (username, password, done) => {
+      const user = await storage.getUserByUsername(username);
+      if (!user || !await comparePasswords(password, user.password)) {
+        return done(null, false);
+      } else {
+        return done(null, user);
+      }
+    })
+  );
+  passport.serializeUser((user, done) => done(null, user.id));
+  passport.deserializeUser(async (id, done) => {
+    const user = await storage.getUser(id);
+    done(null, user);
+  });
+  app2.post("/api/register", async (req, res, next) => {
+    try {
+      const { username, password, email, fullName } = req.body;
+      if (!username || !password || !email) {
+        return res.status(400).json({ message: "Username, password, and email are required" });
+      }
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+      const user = await storage.createUser({
+        username,
+        password: await hashPassword(password),
+        email,
+        fullName
+      });
+      req.login(user, (err) => {
+        if (err) return next(err);
+        const { password: password2, ...userWithoutPassword } = user;
+        res.status(201).json(userWithoutPassword);
+      });
+    } catch (error) {
+      res.status(400).json({ message: "Registration failed" });
+    }
+  });
+  app2.post("/api/login", (req, res, next) => {
+    passport.authenticate("local", (err, user, info) => {
+      if (err) return next(err);
+      if (!user) return res.status(401).json({ message: "Invalid credentials" });
+      req.login(user, (err2) => {
+        if (err2) return next(err2);
+        const { password, ...userWithoutPassword } = user;
+        res.status(200).json(userWithoutPassword);
+      });
+    })(req, res, next);
+  });
+  app2.post("/api/logout", (req, res, next) => {
+    req.logout((err) => {
+      if (err) return next(err);
+      res.sendStatus(200);
+    });
+  });
+  app2.get("/api/user", (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { password, ...userWithoutPassword } = req.user;
+    res.json(userWithoutPassword);
+  });
+  (async () => {
+    const adminUser = await storage.getUserByUsername("admin");
+    if (!adminUser) {
+      await storage.createUser({
+        username: "admin",
+        password: await hashPassword("admin123"),
+        email: "admin@autovest.com",
+        fullName: "Admin User"
+      });
+      const createdAdmin = await storage.getUserByUsername("admin");
+      if (createdAdmin) {
+        createdAdmin.role = "admin";
+        storage.users.set(createdAdmin.id, createdAdmin);
+      }
+    }
+  })();
+}
+
+// shared/schema.ts
+import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+var users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  email: text("email").notNull(),
+  fullName: text("full_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  role: text("role").default("user").notNull(),
+  balance: doublePrecision("balance").default(0).notNull()
+});
+var packages = pgTable("packages", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  tier: text("tier").notNull(),
+  // Economy, Premium, Luxury, Supercar
+  weeklyReturn: doublePrecision("weekly_return").notNull(),
+  minInvestment: integer("min_investment").notNull(),
+  imageUrl: text("image_url"),
+  isActive: boolean("is_active").default(true)
+});
+var investments = pgTable("investments", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  packageId: integer("package_id").notNull().references(() => packages.id),
+  amount: doublePrecision("amount").notNull(),
+  startDate: timestamp("start_date").defaultNow(),
+  endDate: timestamp("end_date"),
+  durationMonths: integer("duration_months").notNull(),
+  isActive: boolean("is_active").default(true),
+  totalEarned: doublePrecision("total_earned").default(0)
+});
+var transactions = pgTable("transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  investmentId: integer("investment_id").references(() => investments.id),
+  type: text("type").notNull(),
+  // "deposit", "withdrawal", "return"
+  amount: doublePrecision("amount").notNull(),
+  date: timestamp("date").defaultNow(),
+  status: text("status").default("completed"),
+  description: text("description")
+});
+var insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, role: true, balance: true });
+var insertPackageSchema = createInsertSchema(packages).omit({ id: true, isActive: true });
+var insertInvestmentSchema = createInsertSchema(investments).omit({ id: true, startDate: true, isActive: true, totalEarned: true });
+var insertTransactionSchema = createInsertSchema(transactions).omit({ id: true, date: true });
+
+// server/routes.ts
+import Stripe from "stripe";
+var stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+}
+async function registerRoutes(app2) {
+  setupAuth(app2);
+  app2.get("/api/packages", async (req, res) => {
+    const packages2 = await storage.getPackages();
+    res.json(packages2);
+  });
+  app2.get("/api/packages/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid package ID" });
+    }
+    const pkg = await storage.getPackage(id);
+    if (!pkg) {
+      return res.status(404).json({ message: "Package not found" });
+    }
+    res.json(pkg);
+  });
+  app2.post("/api/packages", async (req, res) => {
+    if (!req.isAuthenticated() || req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    try {
+      const pkg = await storage.createPackage(req.body);
+      res.status(201).json(pkg);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid package data" });
+    }
+  });
+  app2.put("/api/packages/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid package ID" });
+    }
+    try {
+      const updatedPackage = await storage.updatePackage(id, req.body);
+      if (!updatedPackage) {
+        return res.status(404).json({ message: "Package not found" });
+      }
+      res.json(updatedPackage);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid package data" });
+    }
+  });
+  app2.get("/api/investments", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const investments2 = await storage.getInvestments(req.user?.id);
+    res.json(investments2);
+  });
+  app2.get("/api/admin/investments", async (req, res) => {
+    if (!req.isAuthenticated() || req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    const investments2 = await storage.getInvestments();
+    res.json(investments2);
+  });
+  app2.post("/api/investments", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    try {
+      const data = insertInvestmentSchema.parse({
+        ...req.body,
+        userId: req.user.id
+      });
+      const pkg = await storage.getPackage(data.packageId);
+      if (!pkg) {
+        return res.status(404).json({ message: "Package not found" });
+      }
+      if (data.amount < pkg.minInvestment) {
+        return res.status(400).json({
+          message: `Minimum investment for this package is $${pkg.minInvestment}`
+        });
+      }
+      if (req.user.balance < data.amount) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+      const investment = await storage.createInvestment(data);
+      await storage.createTransaction({
+        userId: req.user.id,
+        investmentId: investment.id,
+        type: "deposit",
+        amount: -data.amount,
+        status: "completed",
+        description: `Investment in ${pkg.name}`
+      });
+      res.status(201).json(investment);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid investment data" });
+    }
+  });
+  app2.get("/api/transactions", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const transactions2 = await storage.getTransactions(req.user?.id);
+    res.json(transactions2);
+  });
+  app2.get("/api/admin/transactions", async (req, res) => {
+    if (!req.isAuthenticated() || req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    const transactions2 = await storage.getTransactions();
+    res.json(transactions2);
+  });
+  app2.post("/api/transactions", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    try {
+      const data = insertTransactionSchema.parse({
+        ...req.body,
+        userId: req.user.id
+      });
+      if (data.type === "withdrawal" && req.user.balance < data.amount) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+      const transaction = await storage.createTransaction(data);
+      res.status(201).json(transaction);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid transaction data" });
+    }
+  });
+  app2.get("/api/admin/users", async (req, res) => {
+    if (!req.isAuthenticated() || req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    const users2 = await storage.getUsers();
+    res.json(users2);
+  });
+  app2.post("/api/create-payment-intent", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const { amount } = req.body;
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+      if (!stripe) {
+        return res.status(503).json({
+          error: "Stripe integration not available",
+          message: "Stripe API keys not configured. Please add your Stripe API keys to use this feature."
+        });
+      }
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100),
+        // Convert to cents
+        currency: "usd",
+        metadata: {
+          userId: req.user.id.toString(),
+          userEmail: req.user.email
+        }
+      });
+      res.status(200).json({
+        clientSecret: paymentIntent.client_secret
+      });
+    } catch (error) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/stripe-webhook", async (req, res) => {
+    if (!stripe) {
+      return res.status(503).json({ error: "Stripe integration not available" });
+    }
+    const sig = req.headers["stripe-signature"];
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    let event;
+    try {
+      if (!endpointSecret) {
+        event = req.body;
+      } else {
+        event = stripe.webhooks.constructEvent(
+          req.body,
+          sig,
+          endpointSecret
+        );
+      }
+      if (event.type === "payment_intent.succeeded") {
+        const paymentIntent = event.data.object;
+        const userId = parseInt(paymentIntent.metadata.userId);
+        const amount = paymentIntent.amount / 100;
+        await storage.updateUserBalance(userId, amount);
+        await storage.createTransaction({
+          userId,
+          type: "deposit",
+          amount,
+          status: "completed",
+          description: "Payment via Stripe"
+        });
+      }
+      res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("Webhook error:", error.message);
+      return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+  });
+  const httpServer = createServer(app2);
+  return httpServer;
+}
+
+// server/vite.ts
+import express from "express";
+import fs from "fs";
+import path2 from "path";
+import { createServer as createViteServer, createLogger } from "vite";
+
+// vite.config.ts
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import themePlugin from "@replit/vite-plugin-shadcn-theme-json";
+import path from "path";
+import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+var vite_config_default = defineConfig({
+  plugins: [
+    react(),
+    runtimeErrorOverlay(),
+    themePlugin(),
+    ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
+      await import("@replit/vite-plugin-cartographer").then(
+        (m) => m.cartographer()
+      )
+    ] : []
+  ],
+  resolve: {
+    alias: {
+      "@": path.resolve(import.meta.dirname, "client", "src"),
+      "@shared": path.resolve(import.meta.dirname, "shared"),
+      "@assets": path.resolve(import.meta.dirname, "attached_assets")
+    }
+  },
+  root: path.resolve(import.meta.dirname, "client"),
+  build: {
+    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    emptyOutDir: true
+  }
+});
+
+// server/vite.ts
+import { nanoid } from "nanoid";
+var viteLogger = createLogger();
+function log(message, source = "express") {
+  const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+async function setupVite(app2, server) {
+  const serverOptions = {
+    middlewareMode: true,
+    hmr: { server },
+    allowedHosts: true
+  };
+  const vite = await createViteServer({
+    ...vite_config_default,
+    configFile: false,
+    customLogger: {
+      ...viteLogger,
+      error: (msg, options) => {
+        viteLogger.error(msg, options);
+        process.exit(1);
+      }
+    },
+    server: serverOptions,
+    appType: "custom"
+  });
+  app2.use(vite.middlewares);
+  app2.use("*", async (req, res, next) => {
+    const url = req.originalUrl;
+    try {
+      const clientTemplate = path2.resolve(
+        import.meta.dirname,
+        "..",
+        "client",
+        "index.html"
+      );
+      let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      template = template.replace(
+        `src="/src/main.tsx"`,
+        `src="/src/main.tsx?v=${nanoid()}"`
+      );
+      const page = await vite.transformIndexHtml(url, template);
+      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+    } catch (e) {
+      vite.ssrFixStacktrace(e);
+      next(e);
+    }
+  });
+}
+function serveStatic(app2) {
+  const distPath = path2.resolve(import.meta.dirname, "public");
+  if (!fs.existsSync(distPath)) {
+    throw new Error(
+      `Could not find the build directory: ${distPath}, make sure to build the client first`
+    );
+  }
+  app2.use(express.static(distPath));
+  app2.use("*", (_req, res) => {
+    res.sendFile(path2.resolve(distPath, "index.html"));
+  });
+}
+
+// server/index.ts
+var app = express2();
+app.use(express2.json());
+app.use(express2.urlencoded({ extended: false }));
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path3 = req.path;
+  let capturedJsonResponse = void 0;
+  const originalResJson = res.json;
+  res.json = function(bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path3.startsWith("/api")) {
+      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "\u2026";
+      }
+      log(logLine);
+    }
+  });
+  next();
+});
+(async () => {
+  const server = await registerRoutes(app);
+  app.use((err, _req, res, _next) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    res.status(status).json({ message });
+    throw err;
+  });
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+  const port = 5e3;
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true
+  }, () => {
+    log(`serving on port ${port}`);
+  });
+})();
