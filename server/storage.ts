@@ -11,6 +11,7 @@ const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
   // User methods
+  getUsers(): Promise<User[]>;
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
@@ -33,7 +34,7 @@ export interface IStorage {
   getTransaction(id: number): Promise<Transaction | undefined>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Express session store
 }
 
 export class MemStorage implements IStorage {
@@ -45,7 +46,7 @@ export class MemStorage implements IStorage {
   private packageIdCounter: number;
   private investmentIdCounter: number;
   private transactionIdCounter: number;
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Express session store
 
   constructor() {
     this.users = new Map();
@@ -66,6 +67,10 @@ export class MemStorage implements IStorage {
   }
 
   // User methods
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+  
   async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
   }
@@ -84,7 +89,8 @@ export class MemStorage implements IStorage {
       id, 
       createdAt: now, 
       role: "user",
-      balance: 0
+      balance: 0,
+      fullName: insertUser.fullName || null
     };
     this.users.set(id, user);
     return user;
@@ -109,7 +115,16 @@ export class MemStorage implements IStorage {
 
   async createPackage(pkg: InsertPackage): Promise<Package> {
     const id = this.packageIdCounter++;
-    const newPackage: Package = { ...pkg, id, isActive: true };
+    const newPackage: Package = { 
+      id,
+      name: pkg.name,
+      description: pkg.description || null,
+      tier: pkg.tier,
+      weeklyReturn: pkg.weeklyReturn,
+      minInvestment: pkg.minInvestment,
+      imageUrl: pkg.imageUrl || null,
+      isActive: true
+    };
     this.packages.set(id, newPackage);
     return newPackage;
   }
@@ -181,9 +196,14 @@ export class MemStorage implements IStorage {
     const id = this.transactionIdCounter++;
     const now = new Date();
     const newTransaction: Transaction = {
-      ...transaction,
       id,
-      date: now
+      date: now,
+      type: transaction.type,
+      userId: transaction.userId,
+      amount: transaction.amount,
+      description: transaction.description || null,
+      status: transaction.status || "completed",
+      investmentId: transaction.investmentId || null
     };
     
     this.transactions.set(id, newTransaction);
@@ -202,8 +222,17 @@ export class MemStorage implements IStorage {
   private async initDefaultPackages() {
     const packages = [
       {
-        name: "Economy Tier",
-        description: "Entry level investment with steady returns.",
+        name: "Starter Package",
+        description: "Begin your investment journey with just $1. Perfect for beginners.",
+        tier: "Basic",
+        weeklyReturn: 0.8,
+        minInvestment: 1,
+        imageUrl: "https://images.unsplash.com/photo-1582639510494-c80b5de9f148?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        isActive: true
+      },
+      {
+        name: "Economy Package",
+        description: "Entry level investment with steady returns and low commitment.",
         tier: "Economy",
         weeklyReturn: 1.2,
         minInvestment: 100,
@@ -211,8 +240,8 @@ export class MemStorage implements IStorage {
         isActive: true
       },
       {
-        name: "Premium Tier",
-        description: "Mid-range portfolio with enhanced returns.",
+        name: "Premium Package",
+        description: "Mid-range portfolio with enhanced returns and balanced risk.",
         tier: "Premium",
         weeklyReturn: 1.5,
         minInvestment: 500,
@@ -220,8 +249,8 @@ export class MemStorage implements IStorage {
         isActive: true
       },
       {
-        name: "Luxury Tier",
-        description: "High-end portfolio with premium returns.",
+        name: "Luxury Package",
+        description: "High-end portfolio with premium returns and exclusive benefits.",
         tier: "Luxury",
         weeklyReturn: 2.0,
         minInvestment: 2000,
@@ -229,8 +258,8 @@ export class MemStorage implements IStorage {
         isActive: true
       },
       {
-        name: "Supercar Tier",
-        description: "Elite portfolio with maximum returns.",
+        name: "Supercar Package",
+        description: "Elite portfolio with maximum returns for serious investors.",
         tier: "Supercar",
         weeklyReturn: 2.5,
         minInvestment: 5000,

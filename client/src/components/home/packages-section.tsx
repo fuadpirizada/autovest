@@ -15,52 +15,110 @@ type PackageCardProps = {
 const PackageCard = ({ pkg, index }: PackageCardProps) => {
   const { user } = useAuth();
   
+  // Define badge colors based on tier
+  const getBadgeColor = (tier: string) => {
+    switch(tier) {
+      case "Basic": return "from-teal-500 to-teal-700";
+      case "Economy": return "from-blue-500 to-blue-700";
+      case "Premium": return "from-indigo-500 to-indigo-700";
+      case "Luxury": return "from-orange-500 to-orange-700";
+      case "Supercar": return "from-purple-500 to-purple-700";
+      default: return "from-gray-500 to-gray-700";
+    }
+  };
+
+  // Calculate annual return
+  const annualReturn = (pkg.weeklyReturn * 52).toFixed(1);
+  
+  // Default lock periods if not specified
+  const lockPeriods = pkg.tier === "Basic" 
+    ? [1, 3, 6] 
+    : pkg.tier === "Supercar" 
+      ? [3, 6, 12, 24] 
+      : [3, 6, 12];
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
+      whileHover={{ y: -5 }}
     >
-      <GlassCard className="overflow-hidden transition-all hover:shadow-xl">
+      <GlassCard className="overflow-hidden transition-all hover:shadow-xl h-full flex flex-col">
         <div className="relative">
+          {/* Package tier badge */}
+          <div className="absolute top-4 left-4 z-10">
+            <div className={`bg-gradient-to-r ${getBadgeColor(pkg.tier)} text-white px-3 py-1 text-xs font-bold rounded-lg shadow-lg`}>
+              {pkg.tier}
+            </div>
+          </div>
+          
+          {/* Most popular badge */}
           {pkg.tier === "Supercar" && (
             <div className="absolute -top-1 -right-1 z-10">
-              <div className="bg-gradient-to-r from-purple-500 to-purple-700 text-white px-3 py-1 text-xs font-bold rounded-bl-lg rounded-tr-lg">
+              <div className="bg-gradient-to-r from-purple-500 to-purple-700 text-white px-3 py-1 text-xs font-bold rounded-bl-lg rounded-tr-lg shadow-lg">
                 Most Popular
               </div>
             </div>
           )}
+          
+          {/* For starter package */}
+          {pkg.tier === "Basic" && (
+            <div className="absolute -top-1 -right-1 z-10">
+              <div className="bg-gradient-to-r from-teal-500 to-teal-700 text-white px-3 py-1 text-xs font-bold rounded-bl-lg rounded-tr-lg shadow-lg">
+                New! Start with $1
+              </div>
+            </div>
+          )}
+          
           <div className="h-48 overflow-hidden">
-            <img src={pkg.imageUrl} alt={pkg.name} className="w-full h-full object-cover" />
+            <img 
+              src={pkg.imageUrl || '/placeholder-car.jpg'} 
+              alt={pkg.name} 
+              className="w-full h-full object-cover transition-transform duration-700 hover:scale-110" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
           </div>
         </div>
-        <div className="p-6">
+        
+        <div className="p-6 flex flex-col flex-grow">
           <h3 className="text-xl font-bold mb-2">{pkg.name}</h3>
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">{pkg.description}</p>
           
-          <div className="flex justify-between items-center mb-4">
-            <div>
+          <div className="flex justify-between items-center mb-6 mt-auto">
+            <div className="text-center">
               <p className="text-xs text-gray-500 dark:text-gray-400">Weekly Return</p>
-              <p className="text-xl font-bold text-teal-500">{pkg.weeklyReturn}%</p>
+              <p className="text-xl font-bold text-amber-500">{pkg.weeklyReturn}%</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{annualReturn}% / year</p>
             </div>
-            <div>
+            <div className="text-center">
               <p className="text-xs text-gray-500 dark:text-gray-400">Min. Investment</p>
               <p className="text-xl font-bold">${pkg.minInvestment}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">to start</p>
             </div>
           </div>
           
-          <div className="mb-4">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Lock Period Options</p>
+          <div className="mb-6">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Lock Period Options</p>
             <div className="flex gap-2 flex-wrap">
-              <span className="px-2 py-1 rounded-full text-xs bg-gray-200 dark:bg-gray-800">3 Months</span>
-              <span className="px-2 py-1 rounded-full text-xs bg-gray-200 dark:bg-gray-800">6 Months</span>
-              <span className="px-2 py-1 rounded-full text-xs bg-gray-200 dark:bg-gray-800">12 Months</span>
+              {lockPeriods.map((period) => (
+                <span 
+                  key={period} 
+                  className={`px-2 py-1 rounded-full text-xs ${
+                    period === 1 ? "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300" : 
+                    period === 24 ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300" : 
+                    "bg-gray-200 dark:bg-gray-800"
+                  }`}
+                >
+                  {period} {period === 1 ? "Month" : "Months"}
+                </span>
+              ))}
             </div>
           </div>
           
           <Link href={user ? "/marketplace" : "/auth?tab=register"}>
-            <Button className="w-full py-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-700 text-white font-medium hover:opacity-90 transition-opacity">
+            <Button className="w-full py-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-700 text-white font-medium hover:opacity-90 transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/20 hover:scale-105">
               Invest Now
             </Button>
           </Link>

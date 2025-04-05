@@ -4,6 +4,13 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { z } from "zod";
 import { insertInvestmentSchema, insertTransactionSchema } from "@shared/schema";
+import Stripe from "stripe";
+
+// Initialize Stripe with a fallback for development without keys
+let stripe: Stripe | null = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Sets up /api/register, /api/login, /api/logout, /api/user
@@ -185,10 +192,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    // In a real application, we'd have a proper users table
-    // For now, just return an array of all users
-    const users = Array.from(storage.users?.values() || []);
+    // Get all users
+    const users = await storage.getUsers();
     res.json(users);
+  });
+
+  // Stripe payment intent creation endpoint
+  app.post("/api/create-payment-intent", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const { amount } = req.body;
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+
+      if (!stripe) {
+        // For development without Stripe keys
+        return res.status(503).json({ 
+          error: "Stripe integration not available", 
+          message: "Stripe API keys not configured. Please add your Stripe API keys to use this feature." 
+        });
+      }
+
+      // Create a payment intent
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: "usd",
+        metadata: {
+          userId: req.user.id.toString(),
+          userEmail: req.user.email
+        }
+      });
+
+      res.status(200).json({
+        clientSecret: paymentIntent.client_secret,
+      });
+    } catch (error: any) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Stripe webhook for handling payment events
+  app.post("/api/stripe-webhook", async (req, res) => {
+    if (!stripe) {
+      return res.status(503).json({ error: "Stripe integration not available" });
+    }
+
+    const sig = req.headers['stripe-signature'] as string;
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event;
+
+    try {
+      if (!endpointSecret) {
+        // For development without webhook secret
+        event = req.body;
+      } else {
+        // Verify webhook signature and extract event
+        event = stripe.webhooks.constructEvent(
+          req.body, 
+          sig, 
+          endpointSecret
+        );
+      }
+
+      // Handle successful payment
+      if (event.type === 'payment_intent.succeeded') {
+        const paymentIntent = event.data.object;
+        const userId = parseInt(paymentIntent.metadata.userId);
+        const amount = paymentIntent.amount / 100; // Convert from cents
+
+        // Add funds to user account
+        await storage.updateUserBalance(userId, amount);
+        
+        // Create transaction record
+        await storage.createTransaction({
+          userId,
+          type: "deposit",
+          amount,
+          status: "completed",
+          description: "Payment via Stripe"
+        });
+      }
+
+      res.status(200).json({ received: true });
+    } catch (error: any) {
+      console.error('Webhook error:', error.message);
+      return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
   });
 
   const httpServer = createServer(app);

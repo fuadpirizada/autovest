@@ -24,18 +24,31 @@ const CalculatorSection = () => {
   const [finalAmount, setFinalAmount] = useState<number>(0);
   const [profit, setProfit] = useState<number>(0);
   const [weeklyGrowth, setWeeklyGrowth] = useState<number[]>([]);
+  const [monthlyBreakdown, setMonthlyBreakdown] = useState<{month: number; value: number}[]>([]);
 
   // Calculate investment returns
   useEffect(() => {
     const weeks = Math.floor(duration * 4.33); // Approximate weeks per month
     let total = amount;
     const growthValues: number[] = [];
+    const monthlyValues: {month: number; value: number}[] = [];
 
     if (compound) {
       // Compound growth
       for (let i = 0; i < weeks; i++) {
         total *= (1 + rate / 100);
         growthValues.push(total);
+        
+        // Calculate monthly values (every ~4.33 weeks)
+        if (i % 4 === 0) {
+          const month = Math.floor(i / 4.33) + 1;
+          if (month <= duration) {
+            monthlyValues.push({
+              month,
+              value: total
+            });
+          }
+        }
       }
     } else {
       // Simple growth
@@ -43,12 +56,24 @@ const CalculatorSection = () => {
       for (let i = 0; i < weeks; i++) {
         total += weeklyReturn;
         growthValues.push(total);
+        
+        // Calculate monthly values (every ~4.33 weeks)
+        if (i % 4 === 0) {
+          const month = Math.floor(i / 4.33) + 1;
+          if (month <= duration) {
+            monthlyValues.push({
+              month,
+              value: total
+            });
+          }
+        }
       }
     }
 
     setFinalAmount(total);
     setProfit(total - amount);
     setWeeklyGrowth(growthValues);
+    setMonthlyBreakdown(monthlyValues);
   }, [amount, rate, duration, compound]);
 
   // Calculate progress ring value (0-283)
@@ -221,6 +246,34 @@ const CalculatorSection = () => {
                   <span>Week 1</span>
                   <span>Week {Math.floor(duration * 4.33 / 2)}</span>
                   <span>Week {Math.floor(duration * 4.33)}</span>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-sm font-medium mb-2">Monthly Earnings Breakdown</p>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                  <div className="grid grid-cols-4 gap-2 text-xs font-medium border-b border-gray-200 dark:border-gray-600 pb-2 mb-2">
+                    <div>Month</div>
+                    <div>Balance</div>
+                    <div>Profit</div>
+                    <div>Growth</div>
+                  </div>
+                  <div className="space-y-2 max-h-[180px] overflow-y-auto">
+                    {monthlyBreakdown.map((month, index) => {
+                      const prevValue = index === 0 ? amount : monthlyBreakdown[index - 1].value;
+                      const monthlyProfit = month.value - prevValue;
+                      const growthPercentage = ((month.value / (index === 0 ? amount : prevValue)) - 1) * 100;
+                      
+                      return (
+                        <div key={month.month} className="grid grid-cols-4 gap-2 text-sm py-1">
+                          <div className="font-medium">{month.month}</div>
+                          <div>${Math.round(month.value)}</div>
+                          <div className="text-teal-500">+${Math.round(monthlyProfit)}</div>
+                          <div className="text-amber-500">+{growthPercentage.toFixed(1)}%</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
               

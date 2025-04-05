@@ -3,22 +3,23 @@ import { cn } from "@/lib/utils";
 
 interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-const GlassCard: React.FC<GlassCardProps> = ({ 
-  className, 
-  children, 
-  ...props 
-}) => {
-  return (
-    <div
-      className={cn(
-        "backdrop-blur-lg bg-white/10 dark:bg-gray-900/60 border border-white/10 dark:border-gray-800/50 rounded-xl shadow-xl",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </div>
-  );
-};
+const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
+  ({ className, children, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "rounded-lg border border-gray-200 dark:border-gray-800 bg-white/75 dark:bg-black/75 backdrop-blur-md shadow-lg overflow-hidden",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  }
+);
+
+GlassCard.displayName = "GlassCard";
 
 export default GlassCard;
