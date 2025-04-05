@@ -13,8 +13,7 @@
     }
   ],
   "env": {
-    "SESSION_SECRET": "@autovest-session-secret",
-    "STRIPE_SECRET_KEY": "@autovest-stripe-secret-key",
-    "VITE_STRIPE_PUBLIC_KEY": "@autovest-stripe-public-key"
+    "SESSION_SECRET": "autovest-session-secret-change-me-in-production",
+    "NODE_ENV": "production"
   }
 }
