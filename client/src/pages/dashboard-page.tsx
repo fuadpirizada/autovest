@@ -31,7 +31,7 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 pt-28 pb-12">
       <div className="flex flex-col md:flex-row items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold font-display">Dashboard</h1>

@@ -1,7 +1,5 @@
-import { useState } from "react";
 import { Investment, Package } from "@shared/schema";
-import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
 interface InvestmentListProps {
@@ -9,81 +7,90 @@ interface InvestmentListProps {
   packages: Package[];
 }
 
-const InvestmentList: React.FC<InvestmentListProps> = ({ investments, packages }) => {
+const InvestmentList = ({ investments, packages }: InvestmentListProps) => {
   if (investments.length === 0) {
     return (
-      <div className="p-8 text-center">
-        <h3 className="text-xl font-semibold mb-4">No active investments</h3>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
-          You don't have any active investments yet. Start investing to see your portfolio here.
-        </p>
-        <Link href="/marketplace">
-          <Button className="bg-gradient-to-r from-amber-500 to-amber-700">
-            View Investment Opportunities
-          </Button>
-        </Link>
+      <div className="text-center py-10">
+        <p className="text-gray-500 dark:text-gray-400">No investments found</p>
       </div>
     );
   }
 
-  // Match packages with investments
-  const investmentsWithDetails = investments.map(investment => {
-    const packageDetails = packages.find(pkg => pkg.id === investment.packageId);
-    return { ...investment, packageDetails };
-  });
-
   return (
-    <div className="space-y-4">
-      {investmentsWithDetails.map((investment) => {
-        // Calculate progress
-        const startDate = new Date(investment.startDate);
-        const endDate = new Date(investment.endDate);
-        const now = new Date();
-        const totalDays = (endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24);
-        const daysElapsed = (now.getTime() - startDate.getTime()) / (1000 * 3600 * 24);
-        const progress = Math.min(100, Math.max(0, (daysElapsed / totalDays) * 100));
-        
-        // Format dates
-        const formattedStartDate = format(startDate, 'MMM d, yyyy');
-        const formattedEndDate = format(endDate, 'MMM d, yyyy');
-        
-        return (
-          <div key={investment.id} className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-lg overflow-hidden">
-                <img 
-                  src={investment.packageDetails?.imageUrl || "https://via.placeholder.com/120"} 
-                  alt={investment.packageDetails?.name || "Investment"} 
-                  className="w-full h-full object-cover" 
-                />
-              </div>
-              <div className="flex-grow">
-                <div className="flex justify-between mb-1">
-                  <h5 className="font-bold">{investment.packageDetails?.name || "Investment Package"}</h5>
-                  <span className="text-teal-500">{investment.packageDetails?.weeklyReturn || 0}% Weekly</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="flex-grow">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Period: {formattedStartDate} - {formattedEndDate}
-                    </p>
-                    <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mt-1">
-                      <div 
-                        className="h-full bg-teal-500 rounded-full" 
-                        style={{ width: `${progress}%` }}
-                      ></div>
+    <div className="overflow-auto">
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="border-b border-gray-200 dark:border-gray-800">
+            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Package
+            </th>
+            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Amount
+            </th>
+            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Start Date
+            </th>
+            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Duration
+            </th>
+            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Earned
+            </th>
+            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Status
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {investments.map((investment) => {
+            const pkg = packages.find((p) => p.id === investment.packageId);
+            
+            return (
+              <tr 
+                key={investment.id} 
+                className="border-b border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
+              >
+                <td className="py-4 px-4">
+                  <div className="flex items-center">
+                    <div className="h-10 w-10 rounded-md bg-gray-200 dark:bg-gray-800 overflow-hidden mr-3">
+                      {pkg?.imageUrl ? (
+                        <img 
+                          src={pkg.imageUrl} 
+                          alt={pkg?.name || 'Package'} 
+                          className="h-full w-full object-cover" 
+                        />
+                      ) : (
+                        <div className="h-full w-full bg-gradient-to-r from-amber-500 to-amber-700" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{pkg?.name || "Unknown Package"}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{pkg?.tier || ""}</p>
                     </div>
                   </div>
-                  <div className="text-right ml-4">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Investment: ${investment.amount}</p>
-                    <p className="text-sm text-teal-500">Earned: +${investment.totalEarned.toFixed(2)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+                </td>
+                <td className="py-4 px-4 font-medium">${investment.amount.toFixed(2)}</td>
+                <td className="py-4 px-4 text-sm">
+                  {investment.startDate 
+                    ? format(new Date(investment.startDate), 'MMM dd, yyyy') 
+                    : "Not started"}
+                </td>
+                <td className="py-4 px-4 text-sm">{investment.durationMonths} month</td>
+                <td className="py-4 px-4 font-medium text-teal-600 dark:text-teal-400">
+                  ${(investment.totalEarned || 0).toFixed(2)}
+                </td>
+                <td className="py-4 px-4">
+                  {investment.isActive ? (
+                    <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>
+                  ) : (
+                    <Badge variant="outline">Completed</Badge>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 };

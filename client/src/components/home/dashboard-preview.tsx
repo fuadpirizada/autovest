@@ -1,8 +1,15 @@
 import { motion } from "framer-motion";
 import GlassCard from "@/components/ui/glass-card";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 
 const DashboardPreview = () => {
+  const { user } = useAuth();
+  
+  // Don't show preview if user is logged in
+  if (user) {
+    return null;
+  }
   return (
     <section className="py-16 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
       <div className="container mx-auto px-4">
