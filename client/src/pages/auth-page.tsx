@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Redirect } from "wouter";
+import { Redirect, useLocation } from "wouter";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,8 +35,18 @@ type LoginFormData = z.infer<typeof loginSchema>;
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 const AuthPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>("login");
+  const [location] = useLocation();
+  const params = new URLSearchParams(location.split('?')[1]);
+  const tabParam = params.get('tab');
+  const [activeTab, setActiveTab] = useState<string>(tabParam === 'register' ? 'register' : 'login');
   const { user, loginMutation, registerMutation } = useAuth();
+  
+  // Update the URL when tab changes
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeTab);
+    window.history.replaceState({}, '', url.toString());
+  }, [activeTab]);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
