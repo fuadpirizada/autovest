@@ -44,7 +44,7 @@ class MemStorage {
         durationMonths: 1,
         type: "vehicle",
         vehicleType: "economy",
-        imageUrl: "/assets/vehicle1.jpg",
+        imageUrl: "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=800&auto=format&fit=crop",
         active: true,
         features: ["Low risk", "1-month lock period", "5% monthly ROI"]
       },
@@ -56,7 +56,7 @@ class MemStorage {
         durationMonths: 3,
         type: "vehicle",
         vehicleType: "midrange",
-        imageUrl: "/assets/vehicle2.jpg",
+        imageUrl: "https://images.unsplash.com/photo-1525609004556-c46c7d6cf023?q=80&w=800&auto=format&fit=crop",
         active: true,
         features: ["Medium risk", "3-month lock period", "10% monthly ROI"]
       },
@@ -68,7 +68,7 @@ class MemStorage {
         durationMonths: 6,
         type: "vehicle",
         vehicleType: "luxury",
-        imageUrl: "/assets/vehicle3.jpg",
+        imageUrl: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=800&auto=format&fit=crop",
         active: true,
         features: ["Higher risk", "6-month lock period", "15% monthly ROI"]
       },
@@ -80,7 +80,7 @@ class MemStorage {
         durationMonths: 12,
         type: "vehicle",
         vehicleType: "ultraluxury",
-        imageUrl: "/assets/vehicle4.jpg",
+        imageUrl: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=800&auto=format&fit=crop",
         active: true,
         features: ["Premium risk", "12-month lock period", "20% monthly ROI"]
       },
@@ -92,7 +92,7 @@ class MemStorage {
         durationMonths: 1,
         type: "vehicle",
         vehicleType: "budget",
-        imageUrl: "/assets/vehicle5.jpg",
+        imageUrl: "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=800&auto=format&fit=crop",
         active: true,
         features: ["Minimal risk", "1-month lock period", "3% monthly ROI"]
       }

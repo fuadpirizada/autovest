@@ -30,7 +30,8 @@ export default async function handler(req, res) {
           startDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
           endDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days from now
           status: "active",
-          createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000)
+          createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+          name: "Economy Vehicle"
         },
         {
           id: 2,
@@ -41,7 +42,8 @@ export default async function handler(req, res) {
           startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
           endDate: new Date(Date.now() + 150 * 24 * 60 * 60 * 1000), // 150 days from now
           status: "active",
-          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          name: "Luxury Vehicle"
         }
       ];
       
@@ -60,17 +62,32 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: 'Package ID and amount are required' });
       }
       
+      // Get package name based on packageId
+      let packageName = "Vehicle Investment";
+      if (packageId === 1) packageName = "Economy Vehicle";
+      else if (packageId === 2) packageName = "Mid-Range Vehicle";
+      else if (packageId === 3) packageName = "Luxury Vehicle";
+      else if (packageId === 4) packageName = "Ultra Luxury Vehicle";
+      else if (packageId === 5) packageName = "Budget Investment";
+      
       // Create a sample investment response
       const newInvestment = {
         id: 3,
         userId: 1,
         packageId,
         amount,
-        returnRate: 10,
+        returnRate: packageId === 1 ? 5 : 
+                   packageId === 2 ? 10 : 
+                   packageId === 3 ? 15 : 
+                   packageId === 4 ? 20 : 3,
         startDate: new Date(),
-        endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
+        endDate: new Date(Date.now() + (packageId === 1 ? 30 : 
+                                        packageId === 2 ? 90 : 
+                                        packageId === 3 ? 180 : 
+                                        packageId === 4 ? 365 : 30) * 24 * 60 * 60 * 1000),
         status: "active",
-        createdAt: new Date()
+        createdAt: new Date(),
+        name: packageName
       };
       
       return res.status(201).json(newInvestment);

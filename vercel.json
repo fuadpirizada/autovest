@@ -43,6 +43,10 @@
       "dest": "/api/create-payment-intent.js"
     },
     {
+      "src": "/api/logout",
+      "dest": "/api/logout.js"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/index.js"
     },
